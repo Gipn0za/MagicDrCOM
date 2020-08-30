@@ -1,0 +1,126 @@
+  
+name: Multi Platform Building Jobs
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  PYTHON_VERSION: '3.7'
+  UPX_VERSION: '3.95'
+  UPX_SOURCE: 'https://github.com/upx/upx/releases/download/v'
+
+jobs:
+  macOS:
+    name: MacOS Platform Build
+    runs-on: macos-latest
+    steps:
+      - name: Check source code
+        uses: actions/checkout@master
+        with:
+          ref: master
+
+      - name: Set up Python
+        uses: actions/setup-python@master
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: 'x64'
+
+      - name: Build environment
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install
+          pipenv run pip install -r requirements.txt
+          pipenv run pip install pyinstaller
+      - name: Assemble artifact
+        shell: bash
+        run: |
+          mkdir release
+          PYTHONOPTIMIZE=1 pipenv run pyinstaller -F --distpath ./release/ -w -i ./resources/app.icns --clean MagicDrCOM.py
+          rm -rf ./artifact/ && mkdir -p ./artifact/ && mv ./release/MagicDrCOM.app ./artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: macOS platform application
+          path: ./artifact/
+
+  Linux:
+    name: Linux Platform Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source code
+        uses: actions/checkout@master
+        with:
+          ref: master
+
+      - name: Set up Python
+        uses: actions/setup-python@master
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: 'x64'
+
+      - name: Build environment
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install
+          pipenv run pip install -r requirements.txt
+          pipenv run pip install pyinstaller
+          # UPX compress
+          mkdir ./UPX && mkdir ./UPX/dist
+          curl -sL -o ./UPX/upx-compress ${{ env.UPX_SOURCE }}${{ env.UPX_VERSION }}/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz
+          tar -xvJf ./UPX/upx-compress -C ./UPX/dist/
+      - name: Assemble artifact
+        shell: bash
+        run: |
+          mkdir release
+          PYTHONOPTIMIZE=1 pipenv run pyinstaller -F --distpath ./release/ -w -i ./resources/app.ico --clean --upx-dir=./UPX/dist/ MagicDrCOM.py
+          rm -rf ./artifact/ && mkdir -p ./artifact/ && mv ./release/MagicDrCOM ./artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: linux platform application
+          path: ./artifact/
+
+  Windows:
+    name: Windows Platform Build
+    runs-on: windows-latest
+    steps:
+      - name: Check source code
+        uses: actions/checkout@master
+        with:
+          ref: master
+
+      - name: Set up Python
+        uses: actions/setup-python@master
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: 'x64'
+
+      - name: Build environment
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install
+          pipenv run pip install -r requirements.txt
+          pipenv run pip install pyinstaller
+          # UPX compress
+          mkdir ./UPX && mkdir ./UPX/dist
+          curl -sL -o ./UPX/upx-compress ${{ env.UPX_SOURCE }}${{ env.UPX_VERSION }}/upx-${{ env.UPX_VERSION }}-win64.zip
+          unzip ./UPX/upx-compress -d ./UPX/dist/
+      - name: Assemble artifact
+        shell: bash
+        run: |
+          mkdir release
+          PYTHONOPTIMIZE=1 pipenv run pyinstaller -F --distpath ./release/ -w -i ./resources/app.ico --clean --upx-dir=./UPX/dist/ MagicDrCOM.py
+          rm -rf ./artifact/ && mkdir -p ./artifact/ && mv ./release/MagicDrCOM.exe ./artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: windows platform application
+          path: ./artifact/
